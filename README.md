@@ -2,7 +2,7 @@
 
 Pulls original FIT files from Garmin Connect and uploads them to Runalyze via the
 Personal API, on a schedule, from a Mac. This initial codebase was mostly written
-by DeepSeek-V4.1-Flash.
+by an LLM.
 
 ## Why this exists
 
@@ -13,10 +13,10 @@ API version no longer contains Garmin's undocumented, proprietary data, and that
 there is no equivalent field in the public FIT profile (checked against FIT SDK
 21.217).
 
-Values lost on the API path: VO2max (by file), recovery time, performance
-condition, primary training benefit, estimated sweat loss, lactate threshold pace
-and power, age and maximum heart rate from the device's user profile, and some
-sensor and data-source information.
+The reported values lost on the API path include: VO2max (by file), recovery time,
+performance condition, primary training benefit, estimated sweat loss, lactate
+threshold pace and power, age and maximum heart rate from the device's user profile,
+and some sensor and data-source information.
 
 Runalyze's native Garmin auto-sync uses that push path and therefore inherits the
 loss. Fetching the file directly from the Garmin download service does not: a file
@@ -164,6 +164,10 @@ says duplicates are detected and not imported, with no automatic merging. That
 text predates the change and is stale.
 
 ## 6. Schedule it
+
+The LaunchAgent in this repository is a template. The file launchd actually reads is
+`~/Library/LaunchAgents/com.local.garmin-runalyze-sync.plist`; copy the template there,
+and keep the two in sync if you change either.
 
     chmod +x run.sh
     launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.local.garmin-runalyze-sync.plist
