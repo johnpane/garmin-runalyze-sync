@@ -1,7 +1,8 @@
 # garmin-runalyze-sync
 
 Pulls original FIT files from Garmin Connect and uploads them to Runalyze via the
-Personal API, on a schedule, from a Mac.
+Personal API, on a schedule, from a Mac. This initial codebase was mostly written
+by DeepSeek-V4.1-Flash.
 
 ## Why this exists
 
