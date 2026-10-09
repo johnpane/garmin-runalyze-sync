@@ -13,9 +13,9 @@ there is no equivalent field in the public FIT profile (checked against FIT SDK
 21.217).
 
 Values lost on the API path: VO2max (by file), recovery time, performance
-condition at the end of the activity, primary training benefit, estimated sweat
-loss, lactate threshold pace and power, age and maximum heart rate from the
-device's user profile, and some sensor and data-source information.
+condition, primary training benefit, estimated sweat loss, lactate threshold pace
+and power, age and maximum heart rate from the device's user profile, and some
+sensor and data-source information.
 
 Runalyze's native Garmin auto-sync uses that push path and therefore inherits the
 loss. Fetching the file directly from the Garmin download service does not: a file
