@@ -1,0 +1,20 @@
+# secrets and personal data - never commit
+env
+state.sqlite3
+state.sqlite3-wal
+state.sqlite3-shm
+fit/*.fit
+logs/*.log
+
+# python
+.venv/
+__pycache__/
+*.py[cod]
+
+# misc
+.DS_Store
+*.part
+
+# editor backups and locks
+*~
+.#*
