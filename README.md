@@ -136,8 +136,8 @@ Logs: `logs/fetch.log`, `logs/upload.log`.
 
 Do not disconnect it.
 
-Runalyze added replace-on-reupload in early October 2026. Per Runalyze staff, an
-upload via the **upload form** replaces the data of an activity that was already
+Runalyze added merge-on-reupload in early October 2026. Per Runalyze staff, an
+upload via the **upload form** merges the data into an activity that was already
 synced rather than being rejected as a duplicate.
 
 Keeping auto-sync on is preferable to disabling it, because the activity title is
