@@ -36,13 +36,15 @@ rolled it back before. Re-check periodically — see "Verifying fidelity" below.
 | `fit_inventory.py` | compares two FIT files message by message |
 | `run.sh` | fetch then upload, logging to `logs/launchd.log` |
 | `com.local.garmin-runalyze-sync.plist` | LaunchAgent, every 30 minutes |
+| `Dockerfile` | container image for the Docker path; see section 6b |
+| `.dockerignore` | keeps `env` and local state out of the image |
 | `state.sqlite3` | sha256 of every handled file (created on demand) |
 | `fit/` | local archive of original FIT files |
 | `logs/` | run logs |
 
 ## Requirements
 
-Two supported paths:
+Two supported pathways:
 
 * **macOS, native**: venv plus a launchd LaunchAgent. Python 3.10 or newer.
 * **Any platform, Docker**: macOS, Linux or Windows. The Python scripts are
@@ -52,6 +54,8 @@ Two supported paths:
 Either way you need a Garmin Connect account and a Runalyze account with a
 Personal API token (free tier is sufficient; create it at
 <https://runalyze.com/settings/personal-api> and give it an expiry date).
+
+Sections 1-4 use native-install commands. Docker users: see section 6b.
 
 ## 1. Install
 
@@ -86,7 +90,7 @@ the limit is per-account once triggered, and repeated failed attempts extend it
 * Run the first login by hand. Never loop it.
 * If `fetch.py` reports a 429, stop for the day. It exits without retrying, by
   design.
-* launchd or a detached container have no terminal, so `fetch.py` refuses to
+* launchd or a detached container has no terminal, so `fetch.py` refuses to
   attempt an interactive login from a scheduled run. If the token store is ever
   rejected, re-run step 2 by hand.
 
@@ -103,7 +107,15 @@ library's profile being current. It also labels undocumented Garmin messages as
 Pass the known-complete file first. The diff reports what the second file is
 missing relative to the first:
 
-    .venv/bin/python fit_inventory.py ~/Downloads/manual.fit fit/<activityId>.fit
+    .venv/bin/python fit_inventory.py ~/Downloads/manual.fit fit/<activityId>.fit    # macOS
+
+(or, `docker exec garmin-runalyze-sync python fit_inventory.py ...`)
+
+Docker users: substitute `~/garmin-runalyze-data/fit/<activityId>.fit` for the
+`fit/` path, and run `fittxt` and `grep` inside the container, for example
+`docker exec garmin-runalyze-sync fittxt -o /tmp/one.txt /data/fit/<activityId>.fit`.
+Anything you want to compare from the website export must be copied into the data
+directory first, since only `/data` exists inside the container.
 
 Exit status is 0 when equivalent, 1 when not.
 
@@ -130,8 +142,6 @@ file's profile version. Use the message-and-field-number comparison above when i
 matters.
 
 ## 4. Run it by hand
-
-Commands below are for the native (macOS) install. Docker users: see section 6b.
 
     .venv/bin/python fetch.py
     .venv/bin/python upload.py --dry-run
