@@ -271,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
     log.info("done: %d queued, %d failed, %d candidates in %s",
              uploaded, failed, len(candidates), source_dir)
     if uploaded:
-        log.info("uploads are queued by Runalyze; they will not appear "
+        log.info("uploads are queued by Runalyze; they may not appear "
                  "in your calendar immediately")
     return 0
 

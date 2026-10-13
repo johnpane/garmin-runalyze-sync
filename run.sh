@@ -13,6 +13,7 @@ cd "$BASE" || exit 1
 {
   echo "=== $(date -u '+%Y-%m-%dT%H:%M:%SZ') run start"
   "$PY" "$BASE/fetch.py"  || echo "fetch.py exited $?"
+  sleep 61   # let fetch.py output age past SETTLE_SECONDS
   "$PY" "$BASE/upload.py" || echo "upload.py exited $?"
   echo "=== $(date -u '+%Y-%m-%dT%H:%M:%SZ') run end"
 } >> "$LOG" 2>&1

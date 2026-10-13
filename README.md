@@ -136,28 +136,27 @@ Logs: `logs/fetch.log`, `logs/upload.log`.
 
 Do not disconnect it.
 
-Runalyze added merge-on-reupload in early October 2026. Per Runalyze staff, an
-upload via the **upload form** merges the data into an activity that was already
-synced rather than being rejected as a duplicate.
+Runalyze added merge-on-reupload in early October 2026. An upload of a file for
+an activity that was already synced merges the data into that activity rather
+than being rejected as a duplicate, preserving its title, tags and equipment.
+This applies to the **upload form** and, following a fix, to the **API** as well.
+
+The API path was initially broken: on 2026-10-09 a `POST` to the upload endpoint
+for an existing activity returned HTTP 201, created no duplicate, and changed
+nothing. Runalyze staff confirmed merge was working only on the upload form at
+that point and said the API would be checked. It has since been fixed, and
+`upload.py --recheck` successfully merged previously downloaded files into their
+existing auto-synced activities.
+
+Because of that episode, note the failure mode: the endpoint can return 201 while
+applying nothing, so a recorded success in `state.sqlite3` does not prove the data
+landed. Re-run `upload.py --recheck` occasionally, or after any Runalyze change,
+and confirm in Runalyze that VO2max (by file), recovery time and performance
+condition are present on an activity.
 
 Keeping auto-sync on is preferable to disabling it, because the activity title is
 not part of the FIT file: the auto-synced activity carries a title that a
 standalone upload cannot supply, plus any tags or equipment you have added.
-
-**Status of the API path is unconfirmed.** The staff statement about the API was
-"you can upload the file via our API too, it should just replace that data too",
-which is a hedge, and when asked directly the answer was that it might currently
-only work on the upload form and would be checked. Observed behaviour at the time
-of writing: a `POST` to the upload endpoint for an activity that already exists
-returns HTTP 201, creates no duplicate, and changes nothing.
-
-So, until that is resolved:
-
-* This script's fetch half works and is verified.
-* Uploading an activity that does **not** yet exist in Runalyze should create it.
-* Uploading an activity that already exists is currently a no-op server-side.
-* For the values that matter to you, upload the file from `fit/` through the
-  Runalyze upload form. The files are already local; no trip to Garmin is needed.
 
 Note that the help article "Merge activity file into existing activity" still
 says duplicates are detected and not imported, with no automatic merging. That
