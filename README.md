@@ -190,6 +190,29 @@ If the request volume seems high, increase `StartInterval` to 3600. Activities
 reach Garmin within minutes, so little is lost. Runalyze asks that its Personal
 API not be abused.
 
+## 6a. Alternative: Docker
+
+Instead of a venv and launchd, run it in a container. Everything (`env`, `fit/`,
+`logs/`, `state.sqlite3`, Garmin tokens) lives in one host directory mounted at
+`/data`. `SYNC_BASE` and `GARMIN_TOKENSTORE` in `env` are ignored inside the
+container.
+
+    docker build -t garmin-runalyze-sync .
+    mkdir -p ~/garmin-runalyze-data && cp env.example ~/garmin-runalyze-data/env
+    # edit ~/garmin-runalyze-data/env, set RUNALYZE_TOKEN
+
+    # first Garmin login, interactive (MFA prompt)
+    docker run --rm -it --user "$(id -u):$(id -g)" -v ~/garmin-runalyze-data:/data garmin-runalyze-sync \
+        python fetch.py --lookback-days 1 --limit 5
+
+    # then run fetch + upload every INTERVAL seconds (default 1800)
+    docker run -d --name garmin-runalyze-sync --restart unless-stopped \
+        --user "$(id -u):$(id -g)" -v ~/garmin-runalyze-data:/data garmin-runalyze-sync
+    docker logs -f garmin-runalyze-sync
+
+Do not pass the env file with `--env-file`; mount it as `/data/env` as shown.
+`--user` keeps the files in the data directory owned by you instead of root.
+
 ## 7. Idempotency and failure behaviour
 
 * `fetch.py` skips an activity whose `<activityId>.fit` already exists. `--force`
