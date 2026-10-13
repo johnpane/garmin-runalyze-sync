@@ -13,8 +13,15 @@ ENV SYNC_BASE=/data \
     SYNC_ENV=/data/env \
     GARMIN_TOKENSTORE=/data/garminconnect \
     INTERVAL=1800 \
+    SETTLE_SECONDS=0 \
     PYTHONUNBUFFERED=1
+
 VOLUME /data
 
-# Same as run.sh: a fetch failure must not stop the upload.
+# No pause is needed between fetch.py and upload.py. fetch.py writes
+# each file to a .part name and os.replace()s it into place, so /data/fit never
+# contains a partial file, which is what SETTLE_SECONDS protects against. That holds
+# only while fetch.py is the sole writer of /data/fit. Note that these ENV values
+# win over /data/env, because the scripts load that file with setdefault.
+
 CMD ["sh", "-c", "while :; do python fetch.py; python upload.py; sleep \"$INTERVAL\"; done"]

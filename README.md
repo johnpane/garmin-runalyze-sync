@@ -1,8 +1,7 @@
 # garmin-runalyze-sync
 
 Pulls original FIT files from Garmin Connect and uploads them to Runalyze via the
-Personal API, on a schedule, from a Mac. This initial codebase was mostly written
-by an LLM.
+Personal API, on a schedule. This initial codebase was mostly written by an LLM.
 
 ## Why this exists
 
@@ -43,9 +42,16 @@ rolled it back before. Re-check periodically — see "Verifying fidelity" below.
 
 ## Requirements
 
-macOS. Python 3.10 or newer. A Garmin Connect account. A Runalyze account with a
-Personal API token (free tier is sufficient; the token is created at
-<https://runalyze.com/settings/personal-api> and must be given an expiry date).
+Two supported paths:
+
+* **macOS, native**: venv plus a launchd LaunchAgent. Python 3.10 or newer.
+* **Any platform, Docker**: macOS, Linux or Windows. The Python scripts are
+  OS-independent; only the scheduler is platform-specific, and the container
+  supplies its own.
+
+Either way you need a Garmin Connect account and a Runalyze account with a
+Personal API token (free tier is sufficient; create it at
+<https://runalyze.com/settings/personal-api> and give it an expiry date).
 
 ## 1. Install
 
@@ -70,7 +76,8 @@ its shebangs and `pyvenv.cfg`.
 
 Prompts for email, password and MFA code, then writes
 `~/.garminconnect/garmin_tokens.json`. Later runs, including runs started by
-launchd, authenticate from that token store and never redo the SSO password flow.
+launchd or Docker, authenticate from that token store and never redo the SSO
+password flow.
 
 That distinction matters: Garmin rate limits the SSO login endpoint with HTTP 429,
 the limit is per-account once triggered, and repeated failed attempts extend it
@@ -79,9 +86,9 @@ the limit is per-account once triggered, and repeated failed attempts extend it
 * Run the first login by hand. Never loop it.
 * If `fetch.py` reports a 429, stop for the day. It exits without retrying, by
   design.
-* launchd has no terminal, so `fetch.py` refuses to attempt an interactive login
-  from a scheduled run. If the token store is ever rejected, re-run step 2 by
-  hand.
+* launchd or a detached container have no terminal, so `fetch.py` refuses to
+  attempt an interactive login from a scheduled run. If the token store is ever
+  rejected, re-run step 2 by hand.
 
 Start with `--lookback-days 1` so the first call does not pull your whole history.
 `--list` shows what would be downloaded without downloading.
@@ -104,7 +111,9 @@ To answer the question definitively for one activity, avoid the diff entirely an
 compare hashes. In a browser at connect.garmin.com, open the activity, use the
 gear icon, choose "Export Original", unzip, then:
 
-    shasum -a 256 ~/Downloads/<activityId>_ACTIVITY.fit fit/<activityId>.fit
+    shasum -a 256 ~/Downloads/<activityId>_ACTIVITY.fit fit/<activityId>.fit     # macOS
+    sha256sum ~/Downloads/<activityId>_ACTIVITY.fit fit/<activityId>.fit         # Linux
+    Get-FileHash -Algorithm SHA256 ~\Downloads\<activityId>_ACTIVITY.fit         # Windows
 
 Identical hashes mean this script is receiving the same bytes the website serves.
 
@@ -122,6 +131,8 @@ matters.
 
 ## 4. Run it by hand
 
+Commands below are for the native (macOS) install. Docker users: see section 6b.
+
     .venv/bin/python fetch.py
     .venv/bin/python upload.py --dry-run
     .venv/bin/python upload.py
@@ -130,27 +141,29 @@ matters.
 the state database, so it lists files already uploaded as well as new ones, and it
 reads no file contents.
 
-Logs: `logs/fetch.log`, `logs/upload.log`.
+Logs: `logs/fetch.log`, `logs/upload.log`, or `docker logs -f garmin-runalyze-sync`
+for the container.
 
 ## 5. Runalyze's native Garmin auto-sync: leave it enabled
 
 Do not disconnect it.
 
-Runalyze added merge-on-reupload in early October 2026. An upload of a file for
-an activity that was already synced merges the data into that activity rather
-than being rejected as a duplicate, preserving its title, tags and equipment.
-This applies to the **upload form** and to the **API** as well.
+Runalyze merges on re-upload: uploading a file for an activity that is already in
+Runalyze adds the missing data to that activity instead of rejecting it as a
+duplicate, preserving its title, tags and equipment. This works on both the
+upload form and `POST /api/v1/activities/uploads`.
 
 Keeping auto-sync on is preferable to disabling it, because the activity title is
 not part of the FIT file: the auto-synced activity carries a title that a
 standalone upload cannot supply, plus any tags or equipment you have added.
 
-Note that as of 10-Oct-26, the help article "Merge activity file into existing activity" still
-says duplicates are detected and not imported, with no automatic merging. That
-text predates the change and is stale.
+Note that as of 2026-10-10, the help article "Merge activity file into existing 
+activity" still says duplicates are detected and not imported, with no automatic 
+merging. That text predates the change and is stale.
 
 ## 6. Schedule it
 
+### 6a. LaunchAgent (Mac only)
 The LaunchAgent in this repository is a template. The file launchd actually reads is
 `~/Library/LaunchAgents/com.local.garmin-runalyze-sync.plist`; copy the template there,
 and keep the two in sync if you change either.
@@ -176,12 +189,15 @@ If the request volume seems high, increase `StartInterval` to 3600. Activities
 reach Garmin within minutes, so little is lost. Runalyze asks that its Personal
 API not be abused.
 
-## 6a. Alternative: Docker
+### 6b. Docker (cross-platform)
 
 Instead of a venv and launchd, run it in a container. Everything (`env`, `fit/`,
 `logs/`, `state.sqlite3`, Garmin tokens) lives in one host directory mounted at
-`/data`. `SYNC_BASE` and `GARMIN_TOKENSTORE` in `env` are ignored inside the
-container.
+`/data`. `SYNC_BASE`, `SYNC_ENV`, `GARMIN_TOKENSTORE`, `SETTLE_SECONDS` and
+`INTERVAL` are set by the image and cannot be changed from `env` inside the
+container, because the scripts load that file with `setdefault` and an existing
+environment variable wins. Use `-e NAME=value` to override any of them at docker
+run.
 
     docker build -t garmin-runalyze-sync .
     mkdir -p ~/garmin-runalyze-data && cp env.example ~/garmin-runalyze-data/env
@@ -199,6 +215,47 @@ container.
 Do not pass the env file with `--env-file`; mount it as `/data/env` as shown.
 `--user` keeps the files in the data directory owned by you instead of root.
 
+Two things are not visible from the commands above.
+
+The scripts are copied into the image at build time, so editing `fetch.py`,
+`upload.py` or `fit_inventory.py` in your checkout has no effect on a running
+container. Rebuild, then remove and recreate the container, because
+`docker restart` reuses the existing image:
+
+    docker build -t garmin-runalyze-sync .
+    docker rm -f garmin-runalyze-sync
+    docker run -d --name garmin-runalyze-sync --restart unless-stopped \
+        --user "$(id -u):$(id -g)" -v ~/garmin-runalyze-data:/data garmin-runalyze-sync
+
+On Windows, use the `docker run` form from the subsection below in place of the
+last command.
+
+The dependencies are installed without pinned versions, so a rebuild can pull
+newer releases even when nothing in the repository has changed. If a rebuild
+starts failing, a library upgrade is the likely cause rather than your edit; see
+the `garminconnect` note in section 9.
+
+#### Windows
+
+PowerShell supports neither `\` line continuation nor `$(id -u)`, and `--user`
+is meaningless there: the container runs in a Linux VM where your Windows
+account has no UID. Omit it and use an explicit path. WSL2 users can follow the
+POSIX instructions verbatim instead.
+
+    docker build -t garmin-runalyze-sync .
+    mkdir $HOME\garmin-runalyze-data
+    copy env.example $HOME\garmin-runalyze-data\env
+    # edit $HOME\garmin-runalyze-data\env, set RUNALYZE_TOKEN
+
+    docker run --rm -it -v ${HOME}/garmin-runalyze-data:/data garmin-runalyze-sync `
+      python fetch.py --lookback-days 1 --limit 5
+
+    docker run -d --name garmin-runalyze-sync --restart unless-stopped `
+      -v ${HOME}/garmin-runalyze-data:/data garmin-runalyze-sync
+
+Files in the data directory are owned by root inside the VM rather than by you.
+That is expected on Windows and has no practical effect on the bind mount.
+
 ## 7. Idempotency and failure behaviour
 
 * `fetch.py` skips an activity whose `<activityId>.fit` already exists. `--force`
@@ -209,8 +266,10 @@ Do not pass the env file with `--env-file`; mount it as `/data/env` as shown.
   `--recheck` ignores stored statuses and re-posts everything, which is how you
   re-attempt files previously accepted but not applied.
 * 401/403, or a body containing "No valid token", stops the run with exit 3.
-* Files modified within `SETTLE_SECONDS` (default 60) are ignored, so a
-  half-written export is not read mid-copy.
+* Files modified within `SETTLE_SECONDS` are ignored, so a half-written export is
+  not read mid-copy. Default 60; the Docker image sets 0, where no settle
+  delay is needed because `fetch.py` is the only writer of the data directory
+  and writes atomically.
 * Garmin's SSO 429 aborts the run with an explanatory message and never retries.
 * Nothing is deleted. `fit/` doubles as your local archive of original files.
 
@@ -229,6 +288,10 @@ server-side filtering cannot apply to them. They are only populated if Garmin
 Express actually syncs your watch on that Mac, and modern Garmin watches use MTP
 rather than USB mass storage, so Finder will not browse the device directly.
 
+This alternative is not available inside the Docker container as shipped, which
+mounts only `/data`. Using this mode there also requires bind-mounting the source
+directory and pointing `FIT_SOURCE_DIR` at its path inside the container.
+
 ## 9. Known fragility
 
 * `garminconnect` is an unofficial wrapper around Garmin's mobile SSO endpoints,
@@ -239,6 +302,11 @@ rather than USB mass storage, so Finder will not browse the device directly.
 * Automated access to Garmin Connect is governed by Garmin's terms of service.
 * The Runalyze Personal API is the same API third-party apps use, is
   write-oriented, and is covered by a fair-use request.
+* The upload endpoint can return HTTP 201 while applying nothing, so read a recorded 
+  201 in `state.sqlite3` as "accepted", not "applied". Re-run `upload.py --recheck`
+  occasionally, or after any change on Runalyze's side, and confirm in Runalyze 
+  that VO2max (by file), recovery time and performance condition are present on the 
+  activity.
 * Garmin's filtering has been introduced, rolled back under public pressure, and
   reintroduced. Re-check with `fit_inventory.py`, which is a one-command test
   once you hold both files.
