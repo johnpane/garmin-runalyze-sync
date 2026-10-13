@@ -139,26 +139,13 @@ Do not disconnect it.
 Runalyze added merge-on-reupload in early October 2026. An upload of a file for
 an activity that was already synced merges the data into that activity rather
 than being rejected as a duplicate, preserving its title, tags and equipment.
-This applies to the **upload form** and, following a fix, to the **API** as well.
-
-The API path was initially broken: on 2026-10-09 a `POST` to the upload endpoint
-for an existing activity returned HTTP 201, created no duplicate, and changed
-nothing. Runalyze staff confirmed merge was working only on the upload form at
-that point and said the API would be checked. It has since been fixed, and
-`upload.py --recheck` successfully merged previously downloaded files into their
-existing auto-synced activities.
-
-Because of that episode, note the failure mode: the endpoint can return 201 while
-applying nothing, so a recorded success in `state.sqlite3` does not prove the data
-landed. Re-run `upload.py --recheck` occasionally, or after any Runalyze change,
-and confirm in Runalyze that VO2max (by file), recovery time and performance
-condition are present on an activity.
+This applies to the **upload form** and to the **API** as well.
 
 Keeping auto-sync on is preferable to disabling it, because the activity title is
 not part of the FIT file: the auto-synced activity carries a title that a
 standalone upload cannot supply, plus any tags or equipment you have added.
 
-Note that the help article "Merge activity file into existing activity" still
+Note that as of 10-Oct-26, the help article "Merge activity file into existing activity" still
 says duplicates are detected and not imported, with no automatic merging. That
 text predates the change and is stale.
 
